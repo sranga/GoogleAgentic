@@ -4,7 +4,6 @@ The **Vaccine-Access Agent (V-Access)** is a multi-agent healthcare-support syst
 
 The system aims to reduce health disparities by providing a reliable, conversational, multilingual assistant that can operate across chat, SMS, and low-bandwidth environments.
 
----
 
 ## **Problem Statement**
 
@@ -34,7 +33,6 @@ Even when information exists, it is:
 
 Users may feel overwhelmed, uncertain, or distrustful — leading to reduced vaccine uptake and preventable health risks.
 
----
 
 ## **Solution Statement**
 
@@ -60,7 +58,6 @@ The system uses **parallel agents**, **sequential orchestration**, and **LoopAge
 
 This allows the entire experience — education → booking → follow-up — to be automated, scalable, and reliable.
 
----
 
 ## **Architecture**
 
@@ -69,7 +66,6 @@ V-Access is built around an orchestrating agent: `vaccess_orchestrator_agent`.
 
 ### **High-Level Architecture**
 
----
 
 ### **Agent Topology (Multi-Agent System)**
 
@@ -123,7 +119,6 @@ V-Access is built around an orchestrating agent: `vaccess_orchestrator_agent`.
 
 * Ensures stability using fallback logic.
 
----
 
 ## **Essential Tools and Utilities**
 
@@ -151,7 +146,6 @@ Used by the **followup\_agent**:
 
 * Resume automatically to send reminders or check-in messages.
 
----
 
 ## **Sessions & Memory**
 
@@ -173,7 +167,6 @@ We use:
 
 Memory allows users to return days later and continue seamlessly.
 
----
 
 ## **Context Engineering**
 
@@ -185,7 +178,6 @@ Because healthcare conversations can become long:
 
 * temporary tool contexts (e.g., one-time search results) are excluded unless needed
 
----
 
 ## **Observability: Logging, Tracing, Metrics**
 
@@ -215,7 +207,6 @@ Metrics collected:
 
 This mirrors the ADK’s recommended observability patterns.
 
----
 
 ## **Agent Evaluation**
 
@@ -231,13 +222,11 @@ The `eval/` directory includes:
 
 * **End-to-end scenario test**: user → education → booking → follow-up
 
----
 
 ## **Conclusion**
 
 V-Access demonstrates how multi-agent systems built with ADK can meaningfully support public-health needs. By breaking a complex healthcare workflow into modular, specialized agents, the system improves accuracy, trust, and scalability. It highlights how AI agents can be applied responsibly to solve socially important problems.
 
----
 
 ## **Value Statement**
 
@@ -253,7 +242,6 @@ If more time were available, I would extend the system to:
 
 * implement a cross-region analytics dashboard for public-health teams
 
----
 
 ## **Installation**
 
@@ -262,7 +250,6 @@ Python 3.11.3 recommended.
 
 `pip install -r requirements.txt`
 
----
 
 ## **Running in ADK Web Mode**
 
@@ -272,7 +259,6 @@ Python 3.11.3 recommended.
 
 `python -m tests.test_agent`
 
----
 
 ## **Project Structure**
 
@@ -297,7 +283,6 @@ Python 3.11.3 recommended.
 `tests/`  
 `---- test_agent.py                 # Base integration tests`
 
----
 
 ## **Workflow**
 
@@ -323,5 +308,4 @@ Python 3.11.3 recommended.
 7. **Analytics**  
     `analytics_agent` aggregates anonymized metrics.
 
----
 
