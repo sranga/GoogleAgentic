@@ -1,0 +1,9 @@
+
+# ---------------------------
+# FILE: requirements.txt
+# ---------------------------
+# Minimal requirements for the scaffold. Add ADK / cloud libraries in production.
+
+pytest
+
+
