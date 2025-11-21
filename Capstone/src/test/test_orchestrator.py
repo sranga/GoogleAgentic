@@ -14,8 +14,7 @@ Tests:
 
 import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime
+from unittest.mock import Mock, patch
 
 from vaccess_agent import (
     VAccessOrchestrator,

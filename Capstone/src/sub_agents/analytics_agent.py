@@ -21,9 +21,11 @@ from datetime import datetime
 
 # Try to import ADK Agent; fallback if not available for tests
 try:
-    from adk import Agent, EventActions
+    from google.adk import Agent
+    from google.adk.events import EventActions
 except Exception:
-    from adk import Agent, EventActions  # type: ignore
+    from google.adk import Agent
+    from google.adk.events import EventActions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

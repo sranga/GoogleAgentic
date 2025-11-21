@@ -17,7 +17,6 @@ Tests for AnalyticsAgent:
 import pytest
 import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import Mock
 
 from sub_agents.followup_agent import FollowUpAgent
 from sub_agents.analytics_agent import AnalyticsAgent, MetricsCollector

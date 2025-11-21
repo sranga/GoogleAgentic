@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sub_agents.vaccine_info_agent import VaccineInfoAgent, VACCINE_KB
 from memory import InMemorySessionService, MemoryBank
-from conftest import MockEvent, MockCtx
 
 
 @pytest.fixture

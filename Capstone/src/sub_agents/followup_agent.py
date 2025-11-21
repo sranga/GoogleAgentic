@@ -4,9 +4,9 @@ Follow-up agent - ADK implementation using long-running operations.
 - Resumes when the reminder event triggers
 - Stores follow-up notes in MemoryBank
 """
-
-from adk import Agent, EventActions
-from adk.models import ModelMessage
+from google.adk import Agent
+from google.adk.events import EventActions
+from google.genai import types
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
@@ -49,12 +49,8 @@ class FollowUpAgent(Agent):
         # PAUSE AGENT
         return EventActions(
             pause_until=resume_at,
-            message=ModelMessage(
-                text=(
-                    "Your appointment is confirmed! "
-                    "I'll follow up with you shortly after your vaccination."
-                )
-            ),
+            message=types.Content(parts=[types.Part.from_text("Your appointment is confirmed! "
+                    "I'll follow up with you shortly after your vaccination.")])
         )
 
     async def _handle_checkin(self, ctx):
@@ -73,4 +69,4 @@ class FollowUpAgent(Agent):
                 {"followup_sent_at": datetime.utcnow().isoformat()}
             )
 
-        return ModelMessage(text=checkin_text)
+        return types.Content(parts=[types.Part.from_text(checkin_text)])

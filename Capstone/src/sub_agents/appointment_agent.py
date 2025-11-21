@@ -10,10 +10,17 @@ Appointment agent
 - LoopAgent-style retry logic
 """
 from typing import Dict, Any, List
-from adk import Agent, EventActions
-from adk.models import ModelMessage
-from adk.tools import OpenAPITool
+from google.adk import Agent
+from google.adk.events import EventActions
+from google.genai import types
 
+from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import OpenAPIToolset
+
+from google.adk.tools import FunctionTool
+import json
+
+
+"""
 # Mock OpenAPI schema
 BOOKING_OPENAPI_SPEC = {
     "openapi": "3.0.0",
@@ -21,12 +28,52 @@ BOOKING_OPENAPI_SPEC = {
     "paths": {
         "/book": {
             "post": {
+                "operationId": "book_appointment", # Best practice for naming the tool
                 "summary": "Book appointment",
-                "requestBody": {"required": True},
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    # These are the args you use in ctx.call_tool()
+                                    "clinic_id": {"type": "string", "description": "ID of the clinic."},
+                                    "time": {"type": "string", "format": "date-time", "description": "ISO 8601 time string for the appointment."},
+                                    "user_id": {"type": "string", "description": "The unique ID of the user."}
+                                },
+                                "required": ["clinic_id", "time", "user_id"]
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
                         "description": "Success",
-                        "content": {"application/json": {"example": {"confirmation_id": "CONF-001"}}}
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "confirmed": {"type": "boolean"},
+                                        "confirmation_id": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error or unexpected response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "error_message": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -34,12 +81,28 @@ BOOKING_OPENAPI_SPEC = {
     }
 }
 
-booking_tool = OpenAPITool(
-    name="booking_api",
-    description="Schedules vaccine appointments via clinic API",
-    specification=BOOKING_OPENAPI_SPEC,
+booking_tool = OpenAPIToolset(
+    spec_str_type="json",
+    spec_str=json.dumps(BOOKING_OPENAPI_SPEC)
 )
+"""
 
+def book_appointment(clinic_id: str, time: str, user_id: str):
+    """
+    Books an appointment at the specified clinic for the user.
+    """
+    # This mocks the successful JSON response your actual API would return
+    return {
+        "confirmed": True,
+        "confirmation_id": f"CONF-{clinic_id}-{time}",
+        "clinic_id": clinic_id,
+        "time": time
+    }
+
+# Instantiate the FunctionTool
+# Note: The tool name is derived from the function name ("book_appointment")
+# and its arguments are inferred from the function signature.
+booking_tool = FunctionTool(book_appointment)
 
 class AppointmentAgent(Agent):
     def __init__(self, config: Dict[str, Any]):
@@ -63,10 +126,8 @@ class AppointmentAgent(Agent):
 
         # If already retried max times
         if attempt > self.max_retries:
-            return ModelMessage(
-                text="I wasn’t able to confirm an appointment after several attempts. "
-                     "Please try again or pick another clinic."
-            )
+            return types.Content(parts=[types.Part.from_text("""I wasn’t able to confirm an appointment after several attempts.
+                     "Please try again or pick another clinic.""")])
 
         # Step 1: pick a slot
         slot = self._choose_slot(clinics)
@@ -74,7 +135,7 @@ class AppointmentAgent(Agent):
             session["appointment_attempt"] = attempt + 1
             return EventActions(
                 restart=True,
-                message=ModelMessage(text="Retrying — slot wasn’t valid, attempting again...")
+                message=types.Content(parts=[types.Part.from_text("Retrying — slot wasn’t valid, attempting again...")])
             )
 
         # Step 2: call booking API tool

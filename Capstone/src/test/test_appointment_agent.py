@@ -10,7 +10,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sub_agents.appointment_agent import AppointmentAgent
 from memory import InMemorySessionService
-from conftest import MockEvent, MockCtx
 
 
 @pytest.fixture
