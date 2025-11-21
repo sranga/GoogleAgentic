@@ -5,12 +5,11 @@ Tests for AppointmentAgent
 import pytest
 import sys
 import os
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from sub_agents.appointment_agent import AppointmentAgent
 from memory import InMemorySessionService
+from .conftest import MockEvent, MockCtx
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 @pytest.fixture
 def agent(config):

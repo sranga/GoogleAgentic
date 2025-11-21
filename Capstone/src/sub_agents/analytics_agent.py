@@ -54,14 +54,14 @@ class MetricsCollector:
 
 class AnalyticsAgent(Agent):
     def __init__(self, config: Dict[str, Any], memory_bank=None):
+        self.config = config
+        self.memory_bank = memory_bank
         super().__init__(
             name="analytics_agent",
             model=config.get("model"),
             description="Aggregates anonymized feedback and appointment metrics for reporting.",
             instructions="Ingest anonymized records and provide aggregated metrics on request.",
         )
-        self.config = config
-        self.memory_bank = memory_bank
         self._records: List[Dict[str, Any]] = []
         self.metrics = MetricsCollector()
 

@@ -13,9 +13,6 @@ from typing import Dict, Any, List
 from google.adk import Agent
 from google.adk.events import EventActions
 from google.genai import types
-
-from google.adk.tools.openapi_tool.openapi_spec_parser.openapi_toolset import OpenAPIToolset
-
 from google.adk.tools import FunctionTool
 import json
 
@@ -87,11 +84,12 @@ booking_tool = OpenAPIToolset(
 )
 """
 
-def book_appointment(clinic_id: str, time: str, user_id: str):
+# Define the mock function for the booking API.
+# The name 'booking_api' is the name of the tool.
+def booking_api(clinic_id: str, time: str, user_id: str):
     """
-    Books an appointment at the specified clinic for the user.
+    Mocks the booking API call, returning a structured confirmation response.
     """
-    # This mocks the successful JSON response your actual API would return
     return {
         "confirmed": True,
         "confirmation_id": f"CONF-{clinic_id}-{time}",
@@ -100,12 +98,13 @@ def book_appointment(clinic_id: str, time: str, user_id: str):
     }
 
 # Instantiate the FunctionTool
-# Note: The tool name is derived from the function name ("book_appointment")
-# and its arguments are inferred from the function signature.
-booking_tool = FunctionTool(book_appointment)
+booking_tool = FunctionTool(booking_api)
 
 class AppointmentAgent(Agent):
     def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.max_retries = config.get("max_retries", 3) # TODO: Externalize this config
+        self.booking_tool = booking_tool
         super().__init__(
             name="appointment_agent",
             model=config.get("model"),

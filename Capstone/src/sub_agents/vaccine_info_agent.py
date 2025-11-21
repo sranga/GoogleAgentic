@@ -68,6 +68,9 @@ class VaccineInfoAgent(Agent):
     """
 
     def __init__(self, config: Dict[str, Any], memory_bank=None):
+        self.config = config
+        self.memory_bank = memory_bank
+
         super().__init__(
             name="vaccine_info_agent",
             model=config.get("model", "gemini-2.0-flash"),
@@ -82,8 +85,6 @@ class VaccineInfoAgent(Agent):
                 "a healthcare provider. Keep responses clear, empathetic, and factual."
             ),
         )
-        self.config = config
-        self.memory_bank = memory_bank
         self.kb = VACCINE_KB
         self.max_history_length = config.get("max_history_length", 8)
 
