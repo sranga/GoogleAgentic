@@ -1,5 +1,5 @@
 """
-Unit tests for Enhanced VAccessOrchestrator
+Unit tests for VAccessOrchestrator
 
 Tests:
 - Sequential orchestration
@@ -17,7 +17,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
-from vaccess_agent_enhanced import (
+from vaccess_agent import (
     VAccessOrchestrator,
     WorkflowState,
     VAccessError,
@@ -28,6 +28,10 @@ from vaccess_agent_enhanced import (
 )
 from config import CONFIG
 
+# Add parent directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # ============================================================================
 # TEST FIXTURES

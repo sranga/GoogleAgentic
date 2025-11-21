@@ -262,26 +262,34 @@ Python 3.11.3 recommended.
 
 ## **Project Structure**
 
-`vaccess_agent/`  
-`---- agent.py                      # Orchestrator definition`  
-`---- sub_agents/`  
-`-------- vaccine_info_agent.py     # Education`  
-`-------- clinic_finder_agent.py    # Location search`  
-`-------- appointment_agent.py      # Scheduling`  
-`-------- followup_agent.py         # Reminders & check-ins`  
-`-------- analytics_agent.py        # Reporting`  
-`---- tools.py                      # Custom tools (save file, feedback, directory lookup)`  
-`---- config.py                     # Model configs, tool configs`  
+`Capstone/src/` \
+`├── vaccess_agent.py           # Main orchestrator` \
+`├── config.py                  # Configuration management` \
+`├── memory.py                  # Session and memory services` \
+`├── tools.py                   # Utility tools` \
+`├── observability.py           # Logging, metrics, tracing` \
+`├── security.py                # Security features` \
+`├── requirements.txt           # Dependencies` \
+`│` \
+`├── sub_agents/` \
+`│   ├── __init__.py` \
+`│   ├── vaccine_info_agent.py  # Education agent` \
+`│   ├── clinic_finder_agent.py # Location search agent` \
+`│   ├── appointment_agent.py   # Booking agent` \
+`│   ├── followup_agent.py      # Reminder agent` \
+`│   └── analytics_agent.py     # Metrics agent` \
+`│` \
+`└── test/` \
+`    ├── __init__.py            # (empty file)` \
+`    ├── conftest.py            # Pytest configuration` \
+`    ├── test_vaccine_info_agent.py` \
+`    ├── test_clinic_finder_agent.py` \
+`    ├── test_appointment_agent.py` \
+`    ├── test_followup_agent.py` \
+`    ├── test_analytics_agent.py` \
+`    ├── test_security.py` \
+`    └── test_orchestrator.py`
 
-`eval/`  
-`---- test_education.py`  
-`---- test_clinics.py`  
-`---- test_schedule.py`  
-`---- test_followup.py`  
-`---- test_e2e.py`  
-
-`tests/`  
-`---- test_agent.py                 # Base integration tests`
 
 
 ## **Workflow**

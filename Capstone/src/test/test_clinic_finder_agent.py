@@ -20,6 +20,10 @@ from datetime import datetime
 from sub_agents.clinic_finder_agent import ClinicFinderAgent
 from memory import InMemorySessionService
 
+# Add parent directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # ============================================================================
 # TEST FIXTURES

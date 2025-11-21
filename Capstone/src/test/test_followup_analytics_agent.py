@@ -23,6 +23,10 @@ from sub_agents.followup_agent import FollowUpAgent
 from sub_agents.analytics_agent import AnalyticsAgent, MetricsCollector
 from memory import InMemorySessionService, MemoryBank
 
+# Add parent directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # ============================================================================
 # FOLLOWUP AGENT TESTS
