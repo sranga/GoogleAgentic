@@ -16,8 +16,9 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime
 
-from typing import Dict, Any, List
 from google.genai import types
+from pydantic import PrivateAttr
+
 
 # Use the try-except block to handle testing environment
 try:
@@ -35,7 +36,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
+MAX_HISTORY_LENGTH = 8
 VACCINE_KB = {
     "overview": (
         "Vaccines help your immune system recognize and respond quickly to "
@@ -81,9 +82,13 @@ class VaccineInfoAgent(Agent):
     and LLM enhancement for natural language responses.
     """
 
+    # Declare private attributes using PrivateAttr
+    _memory_bank: Any = PrivateAttr(default=None)
+    _kb: Any = PrivateAttr(default=None)
+    _max_history_length: Any = PrivateAttr(default=None)
+    _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, config: Dict[str, Any], memory_bank=None):
-        self.config = config
-        self.memory_bank = memory_bank
 
         super().__init__(
             name="vaccine_info_agent",
@@ -99,8 +104,27 @@ class VaccineInfoAgent(Agent):
                 "a healthcare provider. Keep responses clear, empathetic, and factual."
             ),
         )
-        self.kb = VACCINE_KB
-        self.max_history_length = config.get("max_history_length", 8)
+        # Use private attributes to avoid Pydantic field conflicts
+        object.__setattr__(self, '_config', config)
+        object.__setattr__(self, '_memory_bank', memory_bank)
+        object.__setattr__(self, '_kb', VACCINE_KB)
+        object.__setattr__(self, '_max_history_length', config.get("max_history_length", MAX_HISTORY_LENGTH))
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def memory_bank(self):
+        return self._memory_bank
+
+    @property
+    def kb(self):
+        return self._kb
+
+    @property
+    def max_history_length(self):
+        return self._max_history_length
 
     async def on_event(self, event, ctx):
         """Handle vaccine information requests."""
@@ -147,7 +171,7 @@ class VaccineInfoAgent(Agent):
             "timestamp": datetime.utcnow().isoformat()
         })
 
-        if self.memory_bank:
+        if self._memory_bank:
             self._update_memory(session, user_query, kb_context)
 
         logger.info("VaccineInfoAgent response generated", extra={"response_length": len(response_text)})
@@ -157,8 +181,8 @@ class VaccineInfoAgent(Agent):
     def _compact_context(self, session: Dict[str, Any]):
         """Keep only the last N messages to avoid token overflow."""
         history = session.get("history", [])
-        if len(history) > self.max_history_length:
-            session["history"] = history[-self.max_history_length:]
+        if len(history) > self._max_history_length:
+            session["history"] = history[-self._max_history_length:]
             logger.info(
                 "Context compacted",
                 extra={"original_length": len(history), "compacted_length": len(session["history"])}
@@ -185,11 +209,11 @@ class VaccineInfoAgent(Agent):
         for keyword, kb_keys in keywords_map.items():
             if keyword in query_lower:
                 for kb_key in kb_keys:
-                    if kb_key in self.kb:
-                        relevant.append(self.kb[kb_key])
+                    if kb_key in self._kb:
+                        relevant.append(self._kb[kb_key])
 
         if not relevant:
-            relevant.append(self.kb["overview"])
+            relevant.append(self._kb["overview"])
 
         return relevant
 
@@ -214,10 +238,10 @@ INSTRUCTIONS:
 
     def _get_preferred_language(self, session: Dict[str, Any]) -> str:
         """Retrieve user's preferred language from memory bank or session."""
-        if self.memory_bank:
+        if self._memory_bank:
             user_id = session.get("user_id")
             if user_id:
-                memories = self.memory_bank.get(user_id)
+                memories = self._memory_bank.get(user_id)
                 for mem in memories:
                     if "preferred_language" in mem:
                         return mem["preferred_language"]
@@ -236,7 +260,7 @@ INSTRUCTIONS:
             "kb_sections_used": len(kb_context),
         }
 
-        self.memory_bank.save(user_id, memory_entry)
+        self._memory_bank.save(user_id, memory_entry)
 
     def _infer_topic(self, query: str) -> str:
         """Infer the main topic from the query."""

@@ -18,6 +18,7 @@ import threading
 from typing import Dict, Any, List, Optional
 from collections import Counter
 from datetime import datetime
+from pydantic import PrivateAttr
 
 # Try to import ADK Agent; fallback if not available for tests
 try:
@@ -61,9 +62,12 @@ class MetricsCollector:
 
 
 class AnalyticsAgent(Agent):
+
+    # Declare private attributes using PrivateAttr
+    _memory_bank: Any = PrivateAttr(default=None)
+    _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, config: Dict[str, Any], memory_bank=None):
-        self.config = config
-        self.memory_bank = memory_bank
         super().__init__(
             name="analytics_agent",
             model=config.get("model"),
@@ -72,6 +76,9 @@ class AnalyticsAgent(Agent):
         )
         self._records: List[Dict[str, Any]] = []
         self.metrics = MetricsCollector()
+        # Use private attributes to avoid Pydantic field conflicts
+        object.__setattr__(self, '_config', config)
+        object.__setattr__(self, '_memory_bank', memory_bank)
 
     async def on_event(self, event, ctx):
         """

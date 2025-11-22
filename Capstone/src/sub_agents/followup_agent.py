@@ -5,6 +5,7 @@ Follow-up agent - ADK implementation using long-running operations.
 - Stores follow-up notes in MemoryBank
 """
 from google.genai import types
+from pydantic import PrivateAttr
 
 # Use the try-except block to handle testing environment
 try:
@@ -25,18 +26,25 @@ from typing import Dict, Any
 
 
 class FollowUpAgent(Agent):
+
+    # Declare private attributes using PrivateAttr
+    _memory_bank: Any = PrivateAttr(default=None)
+    _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, config: Dict[str, Any], memory_bank=None):
         super().__init__(
             name="followup_agent",
             description="Handles follow-up reminders and post-vaccination check-ins.",
             model=config.get("model"),
-            instructions=(
+            instruction=(
                 "You schedule follow-up check-ins for the user. "
                 "When resumed, send a check-in message and capture any symptoms."
             ),
         )
         self.config = config
         self.memory_bank = memory_bank
+        object.__setattr__(self, '_config', config)
+        object.__setattr__(self, '_memory_bank', memory_bank)
 
     async def on_event(self, event, ctx):
         session = ctx.session

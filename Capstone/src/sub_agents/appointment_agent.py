@@ -14,7 +14,7 @@ from google.adk import Agent
 from google.adk.events import EventActions
 from google.genai import types
 from google.adk.tools import FunctionTool
-import json
+from pydantic import PrivateAttr
 
 # Define the mock function for the booking API.
 # The name 'booking_api' is the name of the tool.
@@ -32,11 +32,16 @@ def booking_api(clinic_id: str, time: str, user_id: str):
 # Instantiate the FunctionTool
 booking_tool = FunctionTool(booking_api)
 
+MAX_RETRIES = 3
+
 class AppointmentAgent(Agent):
+
+    # Declare private attributes using PrivateAttr
+    _booking_tool: Any = PrivateAttr(default=None)
+    _max_retries: Any = PrivateAttr(default=None)
+    _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+
     def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.max_retries = config.get("max_retries", 3) # TODO: Externalize this config
-        self.booking_tool = booking_tool
         super().__init__(
             name="appointment_agent",
             model=config.get("model"),
@@ -48,7 +53,13 @@ class AppointmentAgent(Agent):
             ),
             tools=[booking_tool],
         )
-        self.max_retries = 3
+        self.max_retries = MAX_RETRIES
+        self.config = config
+        self.booking_tool = booking_tool
+        # Use private attributes to avoid Pydantic field conflicts
+        object.__setattr__(self, '_config', config)
+        object.__setattr__(self, '_max_retries', MAX_RETRIES)
+        object.__setattr__(self, '_booking_tool', booking_tool)
 
     async def on_event(self, event, ctx):
         session = ctx.session

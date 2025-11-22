@@ -83,10 +83,13 @@ class CircuitBreaker:
 
         if self.failure_count >= self.failure_threshold:
             self.is_open = True
+            # Fix: Use extra dict for structured logging instead of keyword args
             logger.warning(
                 "Circuit breaker opened",
-                failure_count=self.failure_count,
-                threshold=self.failure_threshold
+                extra={
+                    "failure_count": self.failure_count,
+                    "threshold": self.failure_threshold
+                }
             )
 
     def can_execute(self) -> bool:
@@ -141,8 +144,10 @@ class VAccessOrchestrator:
 
         logger.info(
             "VAccessOrchestrator initialized",
-            model=config.get("model"),
-            agents=["vaccine_info", "clinic_finder", "appointment", "followup", "analytics"]
+            extra={
+                "model": config.get("model"),
+                "agents": ["vaccine_info", "clinic_finder", "appointment", "followup", "analytics"]
+            }
         )
 
     def _register_health_checks(self):
@@ -202,7 +207,10 @@ class VAccessOrchestrator:
         metrics.counter("sessions_started")
         metrics.gauge("active_sessions", len(self.session_service._sessions))
 
-        logger.info("Session started", user_id=user_id[:8], initial_input_length=len(initial_input))
+        logger.info(
+            "Session started",
+            extra={"user_id": user_id[:8], "initial_input_length": len(initial_input)}
+        )
 
         return session
 
@@ -233,15 +241,17 @@ class VAccessOrchestrator:
 
             logger.info(
                 "Education query completed",
-                user_id=session.get("user_id", "unknown")[:8],
-                response_length=len(msg)
+                extra={
+                    "user_id": session.get("user_id", "unknown")[:8],
+                    "response_length": len(msg)
+                }
             )
 
             return msg
 
         except Exception as e:
             metrics.counter("education_queries", labels={"status": "error"})
-            logger.error("Education query failed", error=str(e))
+            logger.error("Education query failed", extra={"error": str(e)})
             raise
 
     async def find_and_schedule(self, session: Dict[str, Any], location_query: str) -> Dict[str, Any]:
@@ -291,24 +301,26 @@ class VAccessOrchestrator:
 
                 logger.info(
                     "Workflow completed successfully",
-                    user_id=user_id[:8],
-                    clinic_id=confirmation.get("clinic_id")
+                    extra={
+                        "user_id": user_id[:8],
+                        "clinic_id": confirmation.get("clinic_id")
+                    }
                 )
 
                 return confirmation
 
             except ClinicSearchError as e:
-                logger.error("Clinic search failed", error=str(e))
+                logger.error("Clinic search failed", extra={"error": str(e)})
                 session["workflow_state"] = WorkflowState.FAILED.value
                 return {"confirmed": False, "reason": "clinic_search_error", "error": str(e)}
 
             except AppointmentBookingError as e:
-                logger.error("Booking failed", error=str(e))
+                logger.error("Booking failed", extra={"error": str(e)})
                 session["workflow_state"] = WorkflowState.FAILED.value
                 return {"confirmed": False, "reason": "booking_error", "error": str(e)}
 
             except Exception as e:
-                logger.exception("Unexpected workflow error", error=str(e))
+                logger.exception("Unexpected workflow error", extra={"error": str(e)})
                 session["workflow_state"] = WorkflowState.FAILED.value
                 metrics.counter("workflow_failures", labels={"stage": "unknown"})
                 return {"confirmed": False, "reason": "unexpected_error", "error": str(e)}
@@ -321,7 +333,7 @@ class VAccessOrchestrator:
         session["location_query"] = location_query
         session["workflow_state"] = WorkflowState.CLINIC_SEARCH.value
 
-        logger.info("Starting clinic search", location_query=location_query)
+        logger.info("Starting clinic search", extra={"location_query": location_query})
 
         try:
             clinic_resp = await self.clinic_finder.emit(
@@ -336,7 +348,7 @@ class VAccessOrchestrator:
             self.clinic_search_breaker.record_success()
             metrics.counter("clinic_searches", labels={"status": "success"})
 
-            logger.info("Clinic search completed", candidates_found=len(candidates))
+            logger.info("Clinic search completed", extra={"candidates_found": len(candidates)})
 
             return candidates
 
@@ -353,7 +365,7 @@ class VAccessOrchestrator:
         session["last_clinics"] = candidates
         session["workflow_state"] = WorkflowState.APPOINTMENT_BOOKING.value
 
-        logger.info("Starting appointment booking", candidate_count=len(candidates))
+        logger.info("Starting appointment booking", extra={"candidate_count": len(candidates)})
 
         try:
             result = await self.appointment_agent.emit({}, session=session)
@@ -366,9 +378,9 @@ class VAccessOrchestrator:
                         result
                     )
                     result["confirmation_file"] = filepath
-                    logger.info("Confirmation saved", filename=filepath)
+                    logger.info("Confirmation saved", extra={"filename": filepath})
                 except Exception as e:
-                    logger.warning("Failed to save confirmation", error=str(e))
+                    logger.warning("Failed to save confirmation", extra={"error": str(e)})
 
                 self.booking_breaker.record_success()
                 metrics.counter("appointments_booked", labels={"status": "success"})
@@ -388,14 +400,17 @@ class VAccessOrchestrator:
         """Schedule follow-up reminder."""
         session["workflow_state"] = WorkflowState.FOLLOW_UP.value
 
-        logger.info("Scheduling follow-up", user_id=session.get("user_id", "unknown")[:8])
+        logger.info(
+            "Scheduling follow-up",
+            extra={"user_id": session.get("user_id", "unknown")[:8]}
+        )
 
         try:
             await self.followup_agent.emit({}, session=session)
             metrics.counter("followups_scheduled")
             logger.info("Follow-up scheduled")
         except Exception as e:
-            logger.warning("Follow-up scheduling failed (non-critical)", error=str(e))
+            logger.warning("Follow-up scheduling failed (non-critical)", extra={"error": str(e)})
             metrics.counter("followup_failures")
 
     async def _record_analytics(self, session: Dict[str, Any], confirmation: Dict[str, Any]):
@@ -413,7 +428,7 @@ class VAccessOrchestrator:
             )
             metrics.counter("analytics_records_ingested")
         except Exception as e:
-            logger.warning("Analytics recording failed (non-critical)", error=str(e))
+            logger.warning("Analytics recording failed (non-critical)", extra={"error": str(e)})
 
     async def run_demo_flow(self, user_id: str, location_query: str) -> Dict[str, Any]:
         """
@@ -439,9 +454,11 @@ class VAccessOrchestrator:
             summary = trace.get_trace_summary()
             logger.info(
                 "Demo workflow completed",
-                trace_id=trace.trace_id,
-                total_duration_ms=summary["total_duration_ms"],
-                confirmed=confirmation.get("confirmed")
+                extra={
+                    "trace_id": trace.trace_id,
+                    "total_duration_ms": summary["total_duration_ms"],
+                    "confirmed": confirmation.get("confirmed")
+                }
             )
 
             return {
