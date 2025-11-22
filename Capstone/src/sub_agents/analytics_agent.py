@@ -23,9 +23,17 @@ from datetime import datetime
 try:
     from google.adk import Agent
     from google.adk.events import EventActions
-except Exception:
-    from google.adk import Agent
-    from google.adk.events import EventActions
+except ImportError:
+    # Define simple mock classes for testing outside the full ADK environment
+    class Agent:
+        # Agent class uses __init__ with various arguments (name, model, etc.)
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class EventActions:
+        # EventActions is called to return a flow control action (restart, pause, etc.)
+        def __init__(self, *args, **kwargs):
+            pass
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

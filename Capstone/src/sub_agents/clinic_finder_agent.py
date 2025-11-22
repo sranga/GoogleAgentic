@@ -18,8 +18,20 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import re
 
-from google.adk import Agent
-from google.adk.events import EventActions
+# Use the try-except block to handle testing environment
+try:
+    from google.adk import Agent
+    from google.adk.events import EventActions
+except ImportError:
+    # Define simple mock classes for testing
+    class Agent:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class EventActions:
+        def __init__(self, *args, **kwargs):
+            pass
+
 from google.adk.tools import google_search
 
 logger = logging.getLogger(__name__)
