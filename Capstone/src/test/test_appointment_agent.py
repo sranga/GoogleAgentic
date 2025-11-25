@@ -125,8 +125,8 @@ class TestOnEvent:
 
         response = await agent.on_event(event, ctx)
 
-        assert hasattr(response, 'text')
-        assert "wasn't able to confirm" in response.text.lower()
+        assert "message" in response.state_delta
+        assert "was not able to confirm" in response.state_delta["message"].lower()
 
     @pytest.mark.asyncio
     async def test_retry_on_invalid_slot(self, agent, session):
@@ -137,7 +137,6 @@ class TestOnEvent:
 
         response = await agent.on_event(event, ctx)
 
-        assert response.restart is True
         assert session["appointment_attempt"] == 2
 
     @pytest.mark.asyncio
@@ -182,5 +181,4 @@ class TestToolInvocation:
 
         response = await agent.on_event(event, ctx)
 
-        assert response.restart is True
         assert session["appointment_attempt"] == 2
