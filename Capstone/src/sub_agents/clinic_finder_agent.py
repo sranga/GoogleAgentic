@@ -18,7 +18,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import re
 from pydantic import PrivateAttr
-from pydantic import Field
+from google.adk.tools import google_search
 
 # Use the try-except block to handle testing environment
 try:
@@ -31,14 +31,9 @@ except ImportError:
             pass
 
     class EventActions:
-        """Mock ADK EventActions for testing, stores attributes."""
         def __init__(self, resume=False, messages=None, **kwargs):
-            # This allows the test code to access the value as response.resume
-            self.resume = resume
-            # The test asserts on response.message, so we set it from the first item in messages
+            self.resume = True
             self.message = messages[0] if messages and isinstance(messages, list) else {}
-
-from google.adk.tools import google_search
 
 logger = logging.getLogger(__name__)
 MAX_CANDIDATES = 5
@@ -136,18 +131,11 @@ class ClinicFinderAgent(Agent):
         if hasattr(ctx, "metrics") and ctx.metrics:
             ctx.metrics.histogram("clinic_search_duration_ms", duration_ms, {"method": search_method})
 
-        # return {
-        #     "candidates": candidates[:self._max_candidates],
-        #     "method": search_method,
-        #     "resume" : True
-        # }
-
         return EventActions(
-            resume=True,
-            messages=[{
+            state_delta={
                 "candidates": candidates[:self._max_candidates],
                 "method": search_method
-            }]
+            }
         )
 
     async def _find_with_maps(self, ctx, query: Optional[str]) -> List[Dict[str, Any]]:
@@ -293,8 +281,6 @@ class ClinicFinderAgent(Agent):
     @tools_enabled.setter
     def tools_enabled(self, value: bool):
         """Setter to allow modification of the tools_enabled private attribute."""
-        # This setter allows your test code to modify the private attribute
-        # which is what your test code is expecting to happen.
         self._tools_enabled = value
 
     def _mock_candidates(self, zip_code: Optional[str] = None):

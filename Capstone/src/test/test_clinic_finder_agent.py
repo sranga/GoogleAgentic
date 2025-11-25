@@ -178,9 +178,8 @@ async def test_on_event_with_location_query(config, session):
     response = await agent.on_event(event, ctx)
 
     # Check response
-    assert response.resume is True
-    assert "candidates" in response.message
-    assert len(response.message["candidates"]) > 0
+    assert "candidates" in response.state_delta
+    assert len(response.state_delta["candidates"]) > 0
 
     # Check session updated
     assert "last_clinics" in session
@@ -202,8 +201,8 @@ async def test_on_event_with_session_location(config, session):
 
     response = await agent.on_event(event, ctx)
 
-    assert response.resume is True
-    assert len(response.message["candidates"]) > 0
+    assert "candidates" in response.state_delta
+    assert len(response.state_delta["candidates"]) > 0
 
 
 @pytest.mark.asyncio
@@ -218,8 +217,8 @@ async def test_on_event_without_location(config, session):
     response = await agent.on_event(event, ctx)
 
     # Should still return mock candidates
-    assert response.resume is True
-    assert len(response.message["candidates"]) > 0
+    assert "candidates" in response.state_delta
+    assert len(response.state_delta["candidates"]) > 0
 
 
 # ============================================================================
@@ -453,8 +452,7 @@ async def test_emit_method(config, session):
 
     response = await agent.emit({"location_query": "94110"}, session)
 
-    assert response.resume is True
-    assert "candidates" in response.message
+    assert "candidates" in response.state_delta
 
 
 # ============================================================================
@@ -500,9 +498,9 @@ async def test_maps_fallback_to_mock(config, session):
     # Should fall back to mock data instead of raising
     response = await agent.on_event(event, ctx)
 
-    assert response.resume is True
-    assert len(response.message["candidates"]) > 0
-    assert response.message["method"] == "mock_fallback"
+    assert "candidates" in response.state_delta
+    assert len(response.state_delta["candidates"]) > 0
+    assert response.state_delta["method"] == "mock_fallback"
 
 
 # ============================================================================
@@ -526,16 +524,15 @@ async def test_full_search_flow(config, session):
     response = await agent.on_event(event, ctx)
 
     # Verify complete flow
-    assert response.resume is True
-    assert "candidates" in response.message
-    assert "method" in response.message
+    assert "candidates" in response.state_delta
+    assert "method" in response.state_delta
 
     # Verify session updated
     assert "last_clinics" in session
     assert "clinic_search_method" in session
 
     # Verify candidates are well-formed
-    for candidate in response.message["candidates"]:
+    for candidate in response.state_delta["candidates"]:
         assert "id" in candidate
         assert "name" in candidate
         assert "address" in candidate
@@ -563,8 +560,7 @@ async def test_concurrent_searches(config, session_service):
 
     # All should succeed
     assert len(responses) == 5
-    assert all(r.resume is True for r in responses)
-    assert all("candidates" in r.message for r in responses)
+    assert all("candidates" in r.state_delta for r in responses)
 
 
 if __name__ == "__main__":
