@@ -31,9 +31,14 @@ from security import InputValidator, ValidationError, SecureStorage
 
 # Use the try-except block to handle testing environment for ADK types
 try:
+    from google.adk.agents import Agent as AdkBaseAgent
     from google.adk.events import EventActions
 except ImportError:
     # Minimal mock for testing orchestrator flow without full ADK environment
+    class AdkBaseAgent:
+        def __init__(self, *args, **kwargs):
+            pass
+
     class EventActions:
         def __init__(self, state_delta=None, resume=False, **kwargs):
             # This is the minimal set of attributes the orchestrator accesses
@@ -123,13 +128,21 @@ class CircuitBreaker:
         return False
 
 
-class VAccessOrchestrator:
+class VAccessOrchestrator(AdkBaseAgent):
     """
     Production-grade orchestrator for the vaccine access workflow.
     Coordinates all specialized agents through the complete user journey.
     """
 
     def __init__(self, config: Dict[str, Any]):
+        # 1. Call the parent constructor (BaseAgent/Agent) and set the agent's name.
+        # This registers the agent's identity for the Web UI.
+        try:
+            super().__init__(name="VAccessOrchestrator")
+        except TypeError:
+            # Fallback for environments where BaseAgent has no __init__
+            pass
+
         self.config = config or {}
 
         # Session and memory services
@@ -550,3 +563,8 @@ class VAccessOrchestrator:
                 "confirmation": confirmation,
                 "trace": summary
             }
+
+    @property
+    def model(self) -> str:
+        """Expose the configured model name for ADK metadata."""
+        return self.config.get("model", "orchestrator")
