@@ -19,7 +19,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, UTC
 from collections import defaultdict
 
 from cryptography.fernet import Fernet
@@ -60,7 +60,7 @@ class SecureStorage:
     def save_confirmation(self, user_id: str, confirmation: Dict[str, Any]) -> str:
         """Save encrypted confirmation."""
         hashed_id = hashlib.sha256(user_id.encode()).hexdigest()[:16]
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         filename = f"conf_{hashed_id}_{timestamp}.enc"
         filepath = self.base_dir / filename
 
@@ -70,7 +70,7 @@ class SecureStorage:
         data = {
             "confirmation": confirmation,
             "user_id_hash": hashed_id,
-            "saved_at": datetime.utcnow().isoformat(),
+            "saved_at": datetime.now(UTC).isoformat(),
         }
 
         encrypted = self.cipher.encrypt(json.dumps(data).encode())

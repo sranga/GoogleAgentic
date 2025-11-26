@@ -15,7 +15,7 @@ import json
 import uuid
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, UTC
 from collections import defaultdict
 
 
@@ -28,7 +28,7 @@ class StructuredLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -155,7 +155,7 @@ class ProductionMetrics:
                 "counters": dict(self._counters),
                 "gauges": dict(self._gauges),
                 "histogram_counts": {k: len(v) for k, v in self._histograms.items()},
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": datetime.now(UTC).isoformat()
             }
 
     def reset(self):
@@ -307,7 +307,7 @@ class HealthChecker:
         return {
             "status": "healthy" if all_healthy else "unhealthy",
             "checks": results,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
 

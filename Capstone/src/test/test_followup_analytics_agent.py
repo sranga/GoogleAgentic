@@ -16,7 +16,7 @@ Tests for AnalyticsAgent:
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 from sub_agents.followup_agent import FollowUpAgent
 from sub_agents.analytics_agent import AnalyticsAgent, MetricsCollector
@@ -112,9 +112,9 @@ async def test_reminder_timing(followup_config, memory_bank, session):
     event = FakeEvent(resume=False)
     ctx = FakeCtx(session)
 
-    before = datetime.utcnow()
+    before = datetime.now(UTC)
     response = await agent.on_event(event, ctx)
-    after = datetime.utcnow()
+    after = datetime.now(UTC)
 
     # Check pause_until is approximately 10 seconds in future
     assert "pause_until" in response.state_delta
@@ -268,7 +268,7 @@ async def test_ingest_record(analytics_config, memory_bank, session):
     record = {
         "event": "appointment_confirmed",
         "clinic_id": "clinic_1",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(UTC).isoformat()
     }
 
     event = FakeEvent(payload={"action": "ingest", "record": record})

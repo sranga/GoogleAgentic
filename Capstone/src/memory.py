@@ -12,7 +12,7 @@ For production, replace with persistent stores (Redis, PostgreSQL, etc.)
 
 import threading
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class InMemorySessionService:
@@ -41,8 +41,8 @@ class InMemorySessionService:
             session = {
                 "user_id": user_id,
                 "history": [],
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
                 "lang": "en",
             }
             self._sessions[user_id] = session
@@ -76,7 +76,7 @@ class InMemorySessionService:
             session = self._sessions.get(user_id)
             if session:
                 session.update(updates)
-                session["updated_at"] = datetime.utcnow().isoformat()
+                session["updated_at"] = datetime.now(UTC).isoformat()
             return session
 
     def delete_session(self, user_id: str) -> bool:
@@ -109,7 +109,7 @@ class InMemorySessionService:
         """
         from datetime import timedelta
 
-        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
 
         with self._lock:
             stale_users = [
@@ -148,7 +148,7 @@ class MemoryBank:
 
             # Add metadata
             item_with_meta = item.copy()
-            item_with_meta["_saved_at"] = datetime.utcnow().isoformat()
+            item_with_meta["_saved_at"] = datetime.now(UTC).isoformat()
 
             self._store[user_id].append(item_with_meta)
 

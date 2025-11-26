@@ -14,8 +14,9 @@ Features:
 
 import asyncio
 import logging
+import contextlib
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 
 from sub_agents.vaccine_info_agent import VaccineInfoAgent
@@ -25,10 +26,24 @@ from sub_agents.followup_agent import FollowUpAgent
 from sub_agents.analytics_agent import AnalyticsAgent
 from memory import InMemorySessionService, MemoryBank
 from tools import save_confirmation_to_file
-from observability import get_logger, metrics, TraceContext, set_trace_context, health_checker
+from observability import get_logger, metrics, TraceContext, set_trace_context, health_checker, get_current_trace_context
 from security import InputValidator, ValidationError, SecureStorage
 
+# Use the try-except block to handle testing environment for ADK types
+try:
+    from google.adk.events import EventActions
+except ImportError:
+    # Minimal mock for testing orchestrator flow without full ADK environment
+    class EventActions:
+        def __init__(self, state_delta=None, resume=False, **kwargs):
+            # This is the minimal set of attributes the orchestrator accesses
+            self.state_delta = state_delta if state_delta is not None else {}
+            self.resume = resume
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
 logger = get_logger(__name__)
+
 
 
 class WorkflowState(Enum):
@@ -211,11 +226,11 @@ class VAccessOrchestrator:
 
         session = self.session_service.create_session(user_id)
         session["workflow_state"] = WorkflowState.INITIAL.value
-        session["created_at"] = datetime.utcnow().isoformat()
+        session["created_at"] = datetime.now(UTC).isoformat()
         session["history"].append({
             "role": "user",
             "text": initial_input,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
 
         metrics.counter("sessions_started")
@@ -274,7 +289,7 @@ class VAccessOrchestrator:
 
         try:
             created_at = datetime.fromisoformat(session["created_at"])
-            duration = (datetime.utcnow() - created_at).total_seconds() * 1000
+            duration = (datetime.now(UTC) - created_at).total_seconds() * 1000
             return duration
         except Exception:
             return 0.0
@@ -282,42 +297,46 @@ class VAccessOrchestrator:
     async def run_education(self, session: Dict[str, Any], user_input: str) -> str:
         """
         Run education phase - answer vaccine questions.
-
         Args:
             session: User session
             user_input: User's question
-
-        Returns:
-            Agent response text
+        Returns: Agent response text
         """
-        try:
-            response = await self.vaccine_info.emit({"text": user_input}, session=session)
+        trace_ctx = get_current_trace_context()
+        span_context = trace_ctx.span("run_education") if trace_ctx else contextlib.suppress()
 
-            msg = self._extract_message_text(response)
+        with span_context:
+            try:
+                session["history"].append({
+                    "role": "user",
+                    "text": user_input,
+                    "timestamp": datetime.now(UTC).isoformat()
+                })
 
-            session["workflow_state"] = WorkflowState.EDUCATION.value
-            session["history"].append({
-                "role": "assistant",
-                "text": msg,
-                "timestamp": datetime.utcnow().isoformat()
-            })
+                response = await self.vaccine_info.emit({"text": user_input}, session=session)
+                msg = self._extract_message_text(response)
+                session["workflow_state"] = WorkflowState.EDUCATION.value
+                session["history"].append({
+                    "role": "assistant",
+                    "text": msg,
+                    "timestamp": datetime.now(UTC).isoformat()
+                })
 
-            metrics.counter("education_queries", labels={"status": "success"})
+                metrics.counter("education_queries")
+                metrics.counter("education_queries", labels={"status": "success"})
 
-            logger.info(
-                "Education query completed",
-                extra={
-                    "user_id": session.get("user_id", "unknown")[:8],
-                    "response_length": len(msg)
-                }
-            )
-
-            return msg
-
-        except Exception as e:
-            metrics.counter("education_queries", labels={"status": "error"})
-            logger.error("Education query failed", extra={"error": str(e)})
-            raise
+                logger.info(
+                    "Education query completed",
+                    extra={
+                        "user_id": session.get("user_id", "unknown")[:8],
+                        "response_length": len(msg)
+                    }
+                )
+                return msg
+            except Exception as e:
+                metrics.counter("education_queries", labels={"status": "error"})
+                logger.error("Education query failed", extra={"error": str(e)})
+                raise
 
     async def find_and_schedule(self, session: Dict[str, Any], location_query: str) -> Dict[str, Any]:
         """
@@ -483,7 +502,7 @@ class VAccessOrchestrator:
         anon_record = {
             "event": "appointment_confirmed",
             "clinic_id": confirmation.get("clinic_id"),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         try:

@@ -15,7 +15,7 @@ Features:
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import re
 from pydantic import PrivateAttr
 from google.adk.tools import google_search
@@ -87,7 +87,7 @@ class ClinicFinderAgent(Agent):
         if hasattr(ctx, "metrics") and ctx.metrics:
             ctx.metrics.increment("clinic_searches")
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(UTC)
 
         # Try Maps first, then Search as fallback
         candidates = []
@@ -110,7 +110,7 @@ class ClinicFinderAgent(Agent):
                 candidates = self._mock_candidates(query)
                 search_method = "mock_fallback"
 
-        duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
         logger.info(
             "Clinic search completed",
@@ -202,7 +202,7 @@ class ClinicFinderAgent(Agent):
                 clinic["availability"] = {
                     "next_available": self._generate_next_slot(),
                     "slots_this_week": 10,
-                    "last_checked": datetime.utcnow().isoformat()
+                    "last_checked": datetime.now(UTC).isoformat()
                 }
             except Exception as e:
                 logger.warning("Failed to fetch availability for %s: %s", clinic["id"], e)
@@ -221,7 +221,7 @@ class ClinicFinderAgent(Agent):
         """Generate a realistic next available appointment slot."""
         import random
         days_ahead = random.randint(1, 7)
-        next_date = datetime.utcnow() + timedelta(days=days_ahead)
+        next_date = datetime.now(UTC) + timedelta(days=days_ahead)
         hour = random.randint(9, 16)
         minute = random.choice([0, 15, 30, 45])
         return next_date.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()

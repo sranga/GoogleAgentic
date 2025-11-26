@@ -21,7 +21,7 @@ except ImportError:
         def __init__(self, *args, **kwargs):
             pass
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, Any
 
 
@@ -66,7 +66,7 @@ class FollowUpAgent(Agent):
 
         # compute when to resume
         delay_seconds = self.config.get("followup_seconds", 5)
-        resume_at = datetime.utcnow() + timedelta(seconds=delay_seconds)
+        resume_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
 
         # store reminder metadata
         session["followup_resume_at"] = resume_at.isoformat()
@@ -87,7 +87,7 @@ class FollowUpAgent(Agent):
         if self.memory_bank:
             self.memory_bank.save(
                 session["user_id"],
-                {"followup_sent_at": datetime.utcnow().isoformat()}
+                {"followup_sent_at": datetime.now(UTC).isoformat()}
             )
 
         return EventActions(state_delta={"message": checkin_text})

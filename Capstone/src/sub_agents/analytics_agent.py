@@ -20,6 +20,7 @@ from collections import Counter
 from datetime import datetime
 from pydantic import PrivateAttr
 from pydantic import BaseModel, Field
+from datetime import UTC
 
 # Try to import ADK Agent; fallback if not available for tests
 try:
@@ -39,14 +40,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-# Define the expected data model for records being ingested
-class AnalyticsRecord(BaseModel):
-    event: str = Field(description="The type of event, e.g., 'appointment_confirmed'")
-    timestamp: str = Field(description="ISO 8601 timestamp of the event.")
-    # Use extra='allow' to accept arbitrary fields like query_topic, kb_sections_used, etc.
-    class Config:
-        extra = 'allow'
 
 class MetricsCollector:
     """Simple in-memory metrics collector. Replace with Prometheus/OpenTelemetry in prod."""
@@ -154,9 +147,9 @@ class AnalyticsAgent(Agent):
         logger.info("AnalyticsAgent ingested record: keys=%s", list(record.keys()))
         # Validate record shape
         r = record.copy()
-        r["_received_at"] = datetime.utcnow().isoformat()
+        r["_received_at"] = datetime.now(UTC).isoformat()
         if "timestamp" not in record:
-            r["timestamp"] = datetime.utcnow().isoformat()
+            r["timestamp"] = datetime.now(UTC).isoformat()
 
         self._records.append(r)
 
@@ -182,7 +175,7 @@ class AnalyticsAgent(Agent):
 
     def _export_placeholder(self) -> Dict[str, Any]:
         """Placeholder export - replace with BigQuery/Cloud Storage export in production."""
-        exported_at = datetime.utcnow().isoformat()
+        exported_at = datetime.now(UTC).isoformat()
         logger.info("Analytics export placeholder invoked at %s", exported_at)
         return {"exported_at": exported_at, "records_exported": len(self._records)}
 

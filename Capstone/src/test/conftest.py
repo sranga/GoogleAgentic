@@ -9,7 +9,7 @@ import sys
 import os
 import pytest
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, Optional
 
 # Add src directory to Python path
@@ -166,9 +166,9 @@ class MockAppointmentAgent:
         self.config = config or {}
         self.confirmation = {
             "confirmed": True,
-            "confirmation_id": f"MOCK-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "confirmation_id": f"MOCK-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
             "clinic_id": "clinic_1",
-            "slot_time": datetime.utcnow().isoformat()
+            "slot_time": datetime.now(UTC).isoformat()
         }
         self.should_raise_error = False
         self.error_message = "Mock booking error"

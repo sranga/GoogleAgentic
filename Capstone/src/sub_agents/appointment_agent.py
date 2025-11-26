@@ -10,9 +10,6 @@ Appointment agent
 - LoopAgent-style retry logic
 """
 from typing import Dict, Any, List
-from google.adk import Agent
-from google.adk.events import EventActions
-from google.genai import types
 from google.adk.tools import FunctionTool
 from pydantic import PrivateAttr
 

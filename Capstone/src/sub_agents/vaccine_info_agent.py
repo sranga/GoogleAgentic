@@ -14,7 +14,7 @@ Features:
 
 import logging
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, UTC
 
 from google.genai import types
 from pydantic import PrivateAttr
@@ -163,12 +163,12 @@ class VaccineInfoAgent(Agent):
         session["history"].append({
             "role": "user",
             "text": user_query,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
         session["history"].append({
             "role": "assistant",
             "text": response_text,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
 
         if self._memory_bank:
@@ -268,7 +268,7 @@ INSTRUCTIONS:
         memory_entry = {
             "event": "vaccine_info_query",
             "query_topic": self._infer_topic(query),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "kb_sections_used": len(kb_context),
         }
 
