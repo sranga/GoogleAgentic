@@ -257,7 +257,7 @@ Python 3.11.3 recommended.
 
 ## **Run Integration Tests**
 
-`python -m tests.test_agent`
+`python test/ -v`
 
 
 ## **Project Structure**

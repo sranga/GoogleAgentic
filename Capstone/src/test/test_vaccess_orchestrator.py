@@ -10,11 +10,12 @@ Tests:
 - Health checks
 - Metrics tracking
 - Concurrent session handling
+
+All tests use mock agents from conftest.py to avoid Pydantic patching issues.
 """
 
 import pytest
 import asyncio
-from unittest.mock import Mock, patch
 
 from vaccess_agent import (
     VAccessOrchestrator,
@@ -137,39 +138,61 @@ def test_validate_user_id(orchestrator):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_run_education_success(orchestrator):
+async def test_run_education_success(orchestrator, mock_vaccine_info):
     """Test successful education phase."""
     session = orchestrator.start_session("user_edu", "Hello")
 
-    response = await orchestrator.run_education(session, "What is a vaccine?")
+    mock_vaccine_info.response_text = "Vaccines help prevent diseases."
 
-    assert isinstance(response, str)
-    assert len(response) > 0
-    assert session["workflow_state"] == WorkflowState.EDUCATION.value
-    assert len(session["history"]) >= 2  # User + assistant messages
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
+
+    try:
+        response = await orchestrator.run_education(session, "What is a vaccine?")
+
+        assert isinstance(response, str)
+        assert len(response) > 0
+        assert session["workflow_state"] == WorkflowState.EDUCATION.value
+        assert len(session["history"]) >= 2  # User + assistant messages
+    finally:
+        orchestrator.vaccine_info = original
 
 
 @pytest.mark.asyncio
-async def test_run_education_updates_session(orchestrator):
+async def test_run_education_updates_session(orchestrator, mock_vaccine_info):
     """Test education phase updates session history."""
     session = orchestrator.start_session("user_edu2", "Hello")
     initial_history_len = len(session["history"])
 
-    await orchestrator.run_education(session, "Tell me about side effects")
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
 
-    # Should have 2 new entries (user question + assistant response)
-    assert len(session["history"]) == initial_history_len + 2
+    try:
+        await orchestrator.run_education(session, "Tell me about side effects")
+
+        # Should have 2 new entries (user question + assistant response)
+        assert len(session["history"]) == initial_history_len + 2
+    finally:
+        orchestrator.vaccine_info = original
 
 
 @pytest.mark.asyncio
-async def test_run_education_error_handling(orchestrator):
+async def test_run_education_error_handling(orchestrator, mock_vaccine_info):
     """Test education phase error handling."""
     session = orchestrator.start_session("user_edu3", "Hello")
 
-    # Mock agent to raise error
-    with patch.object(orchestrator.vaccine_info, 'emit', side_effect=Exception("Test error")):
-        with pytest.raises(Exception):
+    # Configure mock to raise error
+    mock_vaccine_info.should_raise_error = True
+    mock_vaccine_info.error_message = "Test error"
+
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
+
+    try:
+        with pytest.raises(Exception, match="Test error"):
             await orchestrator.run_education(session, "Test question")
+    finally:
+        orchestrator.vaccine_info = original
 
 
 # ============================================================================
@@ -177,16 +200,22 @@ async def test_run_education_error_handling(orchestrator):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_workflow_state_progression(orchestrator):
+async def test_workflow_state_progression(orchestrator, mock_vaccine_info):
     """Test workflow state progresses correctly."""
     session = orchestrator.start_session("user_wf", "Hello")
 
     # Initial state
     assert session["workflow_state"] == WorkflowState.INITIAL.value
 
-    # After education
-    await orchestrator.run_education(session, "What are vaccines?")
-    assert session["workflow_state"] == WorkflowState.EDUCATION.value
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
+
+    try:
+        # After education
+        await orchestrator.run_education(session, "What are vaccines?")
+        assert session["workflow_state"] == WorkflowState.EDUCATION.value
+    finally:
+        orchestrator.vaccine_info = original
 
 
 # ============================================================================
@@ -254,7 +283,7 @@ def test_circuit_breaker_resets_on_success():
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_concurrent_sessions(orchestrator):
+async def test_concurrent_sessions(orchestrator, mock_vaccine_info):
     """Test handling multiple concurrent sessions."""
     # Create multiple sessions
     sessions = []
@@ -262,17 +291,23 @@ async def test_concurrent_sessions(orchestrator):
         session = orchestrator.start_session(f"user_{i}", f"Hello {i}")
         sessions.append(session)
 
-    # Run education concurrently
-    tasks = [
-        orchestrator.run_education(sess, "What is a vaccine?")
-        for sess in sessions
-    ]
-    responses = await asyncio.gather(*tasks)
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
 
-    # All should succeed
-    assert len(responses) == 5
-    assert all(isinstance(r, str) for r in responses)
-    assert all(len(r) > 0 for r in responses)
+    try:
+        # Run education concurrently
+        tasks = [
+            orchestrator.run_education(sess, "What is a vaccine?")
+            for sess in sessions
+        ]
+        responses = await asyncio.gather(*tasks)
+
+        # All should succeed
+        assert len(responses) == 5
+        assert all(isinstance(r, str) for r in responses)
+        assert all(len(r) > 0 for r in responses)
+    finally:
+        orchestrator.vaccine_info = original
 
 
 @pytest.mark.asyncio
@@ -299,29 +334,44 @@ async def test_session_locking(orchestrator):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_clinic_search_error_handling(orchestrator):
+async def test_clinic_search_error_handling(orchestrator, mock_clinic_finder):
     """Test error handling in clinic search."""
     session = orchestrator.start_session("user_err", "Hello")
 
-    # Mock clinic finder to raise error
-    with patch.object(orchestrator.clinic_finder, 'emit', side_effect=Exception("Search failed")):
+    # Configure mock to raise error
+    mock_clinic_finder.should_raise_error = True
+    mock_clinic_finder.error_message = "Search failed"
+
+    original = orchestrator.clinic_finder
+    orchestrator.clinic_finder = mock_clinic_finder
+
+    try:
         result = await orchestrator.find_and_schedule(session, "94110")
 
         # Should return error dict instead of crashing
         assert result["confirmed"] is False
         assert "error" in result or "reason" in result
+    finally:
+        orchestrator.clinic_finder = original
 
 
 @pytest.mark.asyncio
-async def test_appointment_booking_error_handling(orchestrator):
+async def test_appointment_booking_error_handling(orchestrator, mock_appointment_agent):
     """Test error handling in appointment booking."""
     session = orchestrator.start_session("user_book_err", "Hello")
 
-    # Mock appointment agent to raise error
-    with patch.object(orchestrator.appointment_agent, 'emit', side_effect=Exception("Booking failed")):
-        result = await orchestrator.find_and_schedule(session, "94110")
+    # Configure mock to raise error
+    mock_appointment_agent.should_raise_error = True
+    mock_appointment_agent.error_message = "Booking failed"
 
+    original = orchestrator.appointment_agent
+    orchestrator.appointment_agent = mock_appointment_agent
+
+    try:
+        result = await orchestrator.find_and_schedule(session, "94110")
         assert result["confirmed"] is False
+    finally:
+        orchestrator.appointment_agent = original
 
 
 # ============================================================================
@@ -419,7 +469,7 @@ async def test_metrics_tracked_on_session_start(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_metrics_tracked_on_education(orchestrator):
+async def test_metrics_tracked_on_education(orchestrator, mock_vaccine_info):
     """Test metrics are tracked during education."""
     from observability import metrics
 
@@ -428,12 +478,18 @@ async def test_metrics_tracked_on_education(orchestrator):
     initial_snapshot = metrics.snapshot()
     initial_count = initial_snapshot["counters"].get("education_queries", 0)
 
-    await orchestrator.run_education(session, "What is a vaccine?")
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
 
-    new_snapshot = metrics.snapshot()
-    new_count = new_snapshot["counters"].get("education_queries", 0)
+    try:
+        await orchestrator.run_education(session, "What is a vaccine?")
 
-    assert new_count > initial_count
+        new_snapshot = metrics.snapshot()
+        new_count = new_snapshot["counters"].get("education_queries", 0)
+
+        assert new_count > initial_count
+    finally:
+        orchestrator.vaccine_info = original
 
 
 # ============================================================================
@@ -441,30 +497,36 @@ async def test_metrics_tracked_on_education(orchestrator):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_full_demo_flow(orchestrator):
+async def test_full_demo_flow(orchestrator, replace_orchestrator_agents, all_mock_agents):
     """Test complete demo workflow."""
-    result = await orchestrator.run_demo_flow("user_demo", "94110")
 
-    assert "session" in result
-    assert "confirmation" in result
-    assert "trace" in result
+    with replace_orchestrator_agents(orchestrator, all_mock_agents):
+        result = await orchestrator.run_demo_flow("user_demo", "94110")
 
-    # Session should exist
-    assert result["session"]["user_id"] == "user_demo"
+        assert "session" in result
+        assert "confirmation" in result
+        assert "trace" in result
 
-    # Should have trace summary
-    trace = result["trace"]
-    assert "trace_id" in trace
-    assert "total_duration_ms" in trace
+        # Session should exist
+        assert result["session"]["user_id"] == "user_demo"
+
+        # Should have trace summary
+        trace = result["trace"]
+        assert "trace_id" in trace
+        assert "total_duration_ms" in trace
 
 
 @pytest.mark.asyncio
-async def test_workflow_state_on_failure(orchestrator):
+async def test_workflow_state_on_failure(orchestrator, replace_orchestrator_agents,
+                                         all_mock_agents):
     """Test workflow state set to FAILED on error."""
     session = orchestrator.start_session("user_fail", "Hello")
 
-    # Mock to force failure
-    with patch.object(orchestrator.clinic_finder, 'emit', side_effect=Exception("Forced failure")):
+    # Configure mock to fail
+    all_mock_agents["clinic_finder"].should_raise_error = True
+    all_mock_agents["clinic_finder"].error_message = "Forced failure"
+
+    with replace_orchestrator_agents(orchestrator, all_mock_agents):
         result = await orchestrator.find_and_schedule(session, "94110")
 
         # State should be FAILED
@@ -473,19 +535,14 @@ async def test_workflow_state_on_failure(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_workflow_state_on_success(orchestrator):
+async def test_workflow_state_on_success(orchestrator, replace_orchestrator_agents,
+                                         all_mock_agents):
     """Test workflow state set to COMPLETED on success."""
     session = orchestrator.start_session("user_success", "Hello")
 
-    # Mock successful responses
-    with patch.object(orchestrator.clinic_finder, 'emit') as mock_clinic, \
-            patch.object(orchestrator.appointment_agent, 'emit') as mock_appt, \
-            patch.object(orchestrator.followup_agent, 'emit') as mock_followup:
-        # Setup mocks
-        mock_clinic.return_value = Mock(message={"candidates": [{"id": "clinic_1", "has_api": True}]})
-        mock_appt.return_value = {"confirmed": True, "confirmation_id": "CONF-123", "clinic_id": "clinic_1"}
-        mock_followup.return_value = Mock()
+    # All mocks are already configured for success by default
 
+    with replace_orchestrator_agents(orchestrator, all_mock_agents):
         result = await orchestrator.find_and_schedule(session, "94110")
 
         # Should complete successfully
@@ -498,14 +555,15 @@ async def test_workflow_state_on_success(orchestrator):
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_empty_clinic_list(orchestrator):
+async def test_empty_clinic_list(orchestrator, replace_orchestrator_agents,
+                                 all_mock_agents):
     """Test handling of empty clinic list."""
     session = orchestrator.start_session("user_no_clinics", "Hello")
 
-    # Mock clinic finder to return no candidates
-    with patch.object(orchestrator.clinic_finder, 'emit') as mock_clinic:
-        mock_clinic.return_value = Mock(message={"candidates": []})
+    # Configure mock to return no candidates
+    all_mock_agents["clinic_finder"].candidates = []
 
+    with replace_orchestrator_agents(orchestrator, all_mock_agents):
         result = await orchestrator.find_and_schedule(session, "94110")
 
         assert result["confirmed"] is False
@@ -513,21 +571,27 @@ async def test_empty_clinic_list(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_multiple_workflow_runs_same_user(orchestrator):
+async def test_multiple_workflow_runs_same_user(orchestrator, mock_vaccine_info):
     """Test running multiple workflows for same user."""
     session = orchestrator.start_session("user_multi", "Hello")
 
-    # Run education multiple times
-    await orchestrator.run_education(session, "Question 1")
-    await orchestrator.run_education(session, "Question 2")
-    await orchestrator.run_education(session, "Question 3")
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
 
-    # Should have accumulated history
-    assert len(session["history"]) >= 7  # Initial + 3*(user+assistant)
+    try:
+        # Run education multiple times
+        await orchestrator.run_education(session, "Question 1")
+        await orchestrator.run_education(session, "Question 2")
+        await orchestrator.run_education(session, "Question 3")
+
+        # Should have accumulated history
+        assert len(session["history"]) >= 7  # Initial + 3*(user+assistant)
+    finally:
+        orchestrator.vaccine_info = original
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_with_tracing(orchestrator):
+async def test_orchestrator_with_tracing(orchestrator, mock_vaccine_info):
     """Test orchestrator with distributed tracing."""
     from observability import TraceContext, set_trace_context
 
@@ -535,11 +599,18 @@ async def test_orchestrator_with_tracing(orchestrator):
     set_trace_context(trace)
 
     session = orchestrator.start_session("user_trace", "Hello")
-    await orchestrator.run_education(session, "What is a vaccine?")
 
-    # Should have trace spans
-    summary = trace.get_trace_summary()
-    assert summary["span_count"] > 0
+    original = orchestrator.vaccine_info
+    orchestrator.vaccine_info = mock_vaccine_info
+
+    try:
+        await orchestrator.run_education(session, "What is a vaccine?")
+
+        # Should have trace spans
+        summary = trace.get_trace_summary()
+        assert summary["span_count"] > 0
+    finally:
+        orchestrator.vaccine_info = original
 
 
 if __name__ == "__main__":

@@ -83,7 +83,6 @@ class CircuitBreaker:
 
         if self.failure_count >= self.failure_threshold:
             self.is_open = True
-            # Fix: Use extra dict for structured logging instead of keyword args
             logger.warning(
                 "Circuit breaker opened",
                 extra={
@@ -176,6 +175,21 @@ class VAccessOrchestrator:
             self._session_locks[user_id] = asyncio.Lock()
         return self._session_locks[user_id]
 
+    def validate_user_id(self, user_id: str) -> str:
+        """
+        Validate user ID format.
+
+        Args:
+            user_id: User identifier to validate
+
+        Returns:
+            Validated user_id
+
+        Raises:
+            ValidationError: If user_id is invalid
+        """
+        return InputValidator.validate_user_id(user_id)
+
     def start_session(self, user_id: str, initial_input: str) -> Dict[str, Any]:
         """
         Start a new user session.
@@ -190,7 +204,7 @@ class VAccessOrchestrator:
         Raises:
             ValidationError: If inputs are invalid
         """
-        user_id = InputValidator.validate_user_id(user_id)
+        user_id = self.validate_user_id(user_id)
 
         if not initial_input or len(initial_input) > 1000:
             raise ValidationError("Invalid initial_input")
@@ -214,6 +228,57 @@ class VAccessOrchestrator:
 
         return session
 
+    def _extract_message_text(self, response: Any) -> str:
+        """
+        Extract text from various response formats.
+
+        Args:
+            response: Response object from agent
+
+        Returns:
+            Extracted text string
+        """
+        # Handle string responses
+        if isinstance(response, str):
+            return response
+
+        # Handle objects with .text attribute
+        if hasattr(response, 'text'):
+            return response.text
+
+        # Handle objects with .message dict
+        if hasattr(response, 'message'):
+            if isinstance(response.message, dict):
+                return response.message.get('text', str(response.message))
+            return str(response.message)
+
+        # Handle dict responses
+        if isinstance(response, dict):
+            return response.get('text', str(response))
+
+        # Fallback to string conversion
+        return str(response)
+
+    def _calculate_workflow_duration(self, session: Dict[str, Any]) -> float:
+        """
+        Calculate workflow duration in milliseconds.
+
+        Args:
+            session: User session dictionary
+
+        Returns:
+            Duration in milliseconds
+        """
+        if "created_at" not in session:
+            return 0.0
+
+        try:
+            created_at = datetime.fromisoformat(session["created_at"])
+            duration = (datetime.utcnow() - created_at).total_seconds() * 1000
+            return duration
+        except Exception:
+            return 0.0
+
     async def run_education(self, session: Dict[str, Any], user_input: str) -> str:
         """
         Run education phase - answer vaccine questions.
@@ -228,7 +293,7 @@ class VAccessOrchestrator:
         try:
             response = await self.vaccine_info.emit({"text": user_input}, session=session)
 
-            msg = response.text if hasattr(response, "text") else str(response)
+            msg = self._extract_message_text(response)
 
             session["workflow_state"] = WorkflowState.EDUCATION.value
             session["history"].append({

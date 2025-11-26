@@ -137,6 +137,18 @@ class AnalyticsAgent(Agent):
 
         return EventActions(state_delta={"error": "unknown action"})
 
+    async def emit(self, payload: dict, session: dict):
+        """Convenience method for testing and direct invocation."""
+        fake_event = type("Event", (), {"payload": payload, "resume": False})()
+        fake_ctx = type("Context", (), {
+            "session": session,
+            "metrics": None,
+            "call_tool": self._mock_call_tool  # If agent uses tools
+        })()
+
+        response = await self.on_event(fake_event, fake_ctx)
+        return response
+
     def _ingest(self, record: Dict[str, Any]):
         """Store an anonymized record. Production systems should apply DP/k-anonymity here."""
         logger.info("AnalyticsAgent ingested record: keys=%s", list(record.keys()))

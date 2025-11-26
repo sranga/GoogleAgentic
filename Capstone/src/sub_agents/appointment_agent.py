@@ -134,6 +134,18 @@ class AppointmentAgent(Agent):
 
         return tool_result
 
+    async def emit(self, payload: dict, session: dict):
+        """Convenience method for testing and direct invocation."""
+        fake_event = type("Event", (), {"payload": payload, "resume": False})()
+        fake_ctx = type("Context", (), {
+            "session": session,
+            "metrics": None,
+            "call_tool": self._mock_call_tool  # If agent uses tools
+        })()
+
+        response = await self.on_event(fake_event, fake_ctx)
+        return response
+
     def _choose_slot(self, clinics: List[Dict[str, Any]]):
         slot_time = self._generate_default_slot()
         for c in clinics:
