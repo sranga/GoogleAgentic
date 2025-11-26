@@ -31,7 +31,7 @@ except ImportError:
             pass
 
     class EventActions:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, **kwargs):
             pass
 
 logger = logging.getLogger(__name__)
@@ -176,7 +176,7 @@ class VaccineInfoAgent(Agent):
 
         logger.info("VaccineInfoAgent response generated", extra={"response_length": len(response_text)})
 
-        return types.Content(parts=[types.Part.from_text(response_text)])
+        return EventActions(state_delta={"message": response_text})
 
     def _compact_context(self, session: Dict[str, Any]):
         """Keep only the last N messages to avoid token overflow."""

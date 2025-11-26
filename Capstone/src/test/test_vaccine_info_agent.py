@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sub_agents.vaccine_info_agent import VaccineInfoAgent, VACCINE_KB
 from memory import InMemorySessionService, MemoryBank
+from .conftest import MockEvent, MockCtx
 
 
 @pytest.fixture
@@ -98,8 +99,8 @@ class TestOnEvent:
 
         response = await agent.on_event(event, ctx)
 
-        assert hasattr(response, 'text')
-        assert len(response.text) > 0
+        assert "message" in response.state_delta
+        assert len(response.state_delta["message"]) > 0
 
     @pytest.mark.asyncio
     async def test_on_event_updates_history(self, agent, session):
@@ -118,7 +119,7 @@ class TestOnEvent:
 
         await agent.on_event(event, ctx)
 
-        assert ctx.metrics.counters.get("vaccine_info_queries:None", 0) > 0
+        assert ctx.metrics.counters.get("vaccine_info_queries", 0) > 0
 
 
 class TestMemoryBankIntegration:
