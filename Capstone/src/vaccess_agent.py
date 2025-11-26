@@ -29,6 +29,10 @@ from tools import save_confirmation_to_file
 from observability import get_logger, metrics, TraceContext, set_trace_context, health_checker, get_current_trace_context
 from security import InputValidator, ValidationError, SecureStorage
 
+from google.adk.agents import Agent
+from google.adk.events import EventActions
+
+"""
 # Use the try-except block to handle testing environment for ADK types
 try:
     from google.adk.agents import Agent as AdkBaseAgent
@@ -46,6 +50,7 @@ except ImportError:
             self.resume = resume
             for k, v in kwargs.items():
                 setattr(self, k, v)
+"""
 
 logger = get_logger(__name__)
 
@@ -128,7 +133,7 @@ class CircuitBreaker:
         return False
 
 
-class VAccessOrchestrator(AdkBaseAgent):
+class VAccessOrchestrator(Agent):
     """
     Production-grade orchestrator for the vaccine access workflow.
     Coordinates all specialized agents through the complete user journey.
@@ -564,7 +569,44 @@ class VAccessOrchestrator(AdkBaseAgent):
                 "trace": summary
             }
 
+    async def stream_query(
+            self,
+            session_id: str,
+            message: str,
+            user_id: str,
+            **kwargs,
+    ) -> EventActions:
+        """
+        The required public entry point for the ADK runtime.
+        Starts a session and executes the first phase of the workflow.
+        """
+        # 1. Start or retrieve the session
+        session = self.start_session(user_id, message)
+
+        # 2. Run the first phase of the workflow (Education)
+        # Note: We are simplifying the flow here for the initial run
+        await self.run_education(session, message)
+
+        # 3. Return a final event to the user
+        last_response = session['history'][-1]['text']
+
+        return EventActions(
+            response=last_response,
+            state_delta={
+                "current_state": session['workflow_state'],
+                "history_length": len(session['history'])
+            }
+        )
+
     @property
     def model(self) -> str:
         """Expose the configured model name for ADK metadata."""
         return self.config.get("model", "orchestrator")
+
+    @property
+    def tools(self) -> list:
+        """
+        Required property for ADK Web UI discovery.
+        Returns an empty list as the orchestrator itself doesn't expose tools.
+        """
+        return []
