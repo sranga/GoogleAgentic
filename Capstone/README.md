@@ -247,7 +247,8 @@ If more time were available, I would extend the system to:
 
 Python 3.11.3 recommended.  
  Install dependencies:
-
+`python -m venv agentic`
+`source agentic/bin/activate`
 `pip install -r requirements.txt`
 
 
@@ -257,7 +258,7 @@ Python 3.11.3 recommended.
 
 ## **Run Integration Tests**
 
-`python test/ -v`
+`python -m pytest test/ -v`
 
 
 ## **Project Structure**
