@@ -34,17 +34,21 @@ class FollowUpAgent(Agent):
     def __init__(self, config: Dict[str, Any], memory_bank=None):
         super().__init__(
             name="followup_agent",
-            description="Handles follow-up reminders and post-vaccination check-ins.",
+            description="Handles follow-up reminders and post-vaccination check-ins."
+                        "You schedule follow-up check-ins for the user. "
+                        "When resumed, send a check-in message and capture any symptoms.",
             model=config.get("model"),
-            instruction=(
-                "You schedule follow-up check-ins for the user. "
-                "When resumed, send a check-in message and capture any symptoms."
-            ),
         )
-        self.config = config
-        self.memory_bank = memory_bank
         object.__setattr__(self, '_config', config)
         object.__setattr__(self, '_memory_bank', memory_bank)
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def memory_bank(self):
+        return self._memory_bank
 
     async def on_event(self, event, ctx):
         session = ctx.session
@@ -69,19 +73,15 @@ class FollowUpAgent(Agent):
 
         # PAUSE AGENT
         return EventActions(
-            pause_until=resume_at,
-            message=types.Content(parts=[types.Part.from_text("Your appointment is confirmed! "
-                    "I'll follow up with you shortly after your vaccination.")])
+            state_delta={"pause_until":resume_at,
+            "message":"Your appointment is confirmed! I'll follow up with you shortly after your vaccination."}
         )
 
     async def _handle_checkin(self, ctx):
         session = ctx.session
 
         # Form the check-in prompt
-        checkin_text = (
-            "Hi! How are you feeling after your vaccination? "
-            "Any soreness, fever, or other symptoms?"
-        )
+        checkin_text = "Hi! How are you feeling after your vaccination? Any soreness, fever, or other symptoms?"
 
         # Store that we attempted a follow-up
         if self.memory_bank:
@@ -90,4 +90,4 @@ class FollowUpAgent(Agent):
                 {"followup_sent_at": datetime.utcnow().isoformat()}
             )
 
-        return types.Content(parts=[types.Part.from_text(checkin_text)])
+        return EventActions(state_delta={"message": checkin_text})

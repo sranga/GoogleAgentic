@@ -95,9 +95,9 @@ async def test_schedule_reminder(followup_config, memory_bank, session):
     response = await agent.on_event(event, ctx)
 
     # Should return EventActions with pause_until
-    assert hasattr(response, 'pause_until')
-    assert hasattr(response, 'message')
-    assert "follow up" in response.message.text.lower()
+    assert "pause_until" in response.state_delta
+    assert "message" in response.state_delta
+    assert "follow up" in response.state_delta["message"].lower()
 
     # Session should have reminder metadata
     assert "followup_resume_at" in session
@@ -117,7 +117,8 @@ async def test_reminder_timing(followup_config, memory_bank, session):
     after = datetime.utcnow()
 
     # Check pause_until is approximately 10 seconds in future
-    pause_time = response.pause_until
+    assert "pause_until" in response.state_delta
+    pause_time = response.state_delta["pause_until"]
     assert before + timedelta(seconds=9) <= pause_time <= after + timedelta(seconds=11)
 
 
@@ -133,9 +134,9 @@ async def test_handle_checkin(followup_config, memory_bank, session):
     response = await agent.on_event(event, ctx)
 
     # Should return ModelMessage with check-in text
-    assert hasattr(response, 'text')
-    assert "feeling" in response.text.lower()
-    assert "vaccination" in response.text.lower()
+    assert "message" in response.state_delta
+    assert "feeling" in response.state_delta["message"].lower()
+    assert "vaccination" in response.state_delta["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -164,7 +165,7 @@ async def test_followup_message_content(followup_config, memory_bank, session):
 
     response = await agent.on_event(event, ctx)
 
-    text = response.text.lower()
+    text = response.state_delta["message"].lower()
     # Should ask about symptoms
     assert any(word in text for word in ["feeling", "symptoms", "soreness", "fever"])
 
@@ -275,8 +276,7 @@ async def test_ingest_record(analytics_config, memory_bank, session):
 
     response = await agent.on_event(event, ctx)
 
-    assert response.resume is True
-    assert response.message["status"] == "ingested"
+    assert response.state_delta["status"] == "ingested"
 
     # Check record was stored
     assert len(agent._records) == 1
@@ -311,7 +311,7 @@ async def test_ingest_without_record(analytics_config, memory_bank, session):
 
     response = await agent.on_event(event, ctx)
 
-    assert "error" in response.message
+    assert "error" in response.state_delta
 
 
 @pytest.mark.asyncio
@@ -335,7 +335,7 @@ async def test_aggregate_records(analytics_config, memory_bank, session):
     event = FakeEvent(payload={"action": "aggregate"})
     response = await agent.on_event(event, ctx)
 
-    aggregate = response.message["aggregate"]
+    aggregate = response.state_delta["aggregate"]
 
     assert aggregate["total_records"] == 3
     assert aggregate["appointment_confirmed"] == 2
@@ -353,7 +353,7 @@ async def test_aggregate_empty(analytics_config, memory_bank, session):
 
     response = await agent.on_event(event, ctx)
 
-    aggregate = response.message["aggregate"]
+    aggregate = response.state_delta["aggregate"]
     assert aggregate["total_records"] == 0
 
 
@@ -372,7 +372,7 @@ async def test_export_placeholder(analytics_config, memory_bank, session):
     event = FakeEvent(payload={"action": "export"})
     response = await agent.on_event(event, ctx)
 
-    exported = response.message["exported"]
+    exported = response.state_delta["exported"]
     assert "exported_at" in exported
     assert exported["records_exported"] == 1
 
@@ -482,15 +482,15 @@ async def test_followup_schedule_and_checkin_cycle(followup_config, memory_bank,
     event1 = FakeEvent(resume=False)
     response1 = await agent.on_event(event1, ctx)
 
-    assert hasattr(response1, 'pause_until')
+    assert "pause_until" in response1.state_delta
     assert "followup_resume_at" in session
 
     # Step 2: Simulate resume (after pause)
     event2 = FakeEvent(resume=True)
     response2 = await agent.on_event(event2, ctx)
 
-    assert hasattr(response2, 'text')
-    assert "feeling" in response2.text.lower()
+    assert "message" in response2.state_delta
+    assert "feeling" in response2.state_delta["message"].lower()
 
     # Step 3: Verify memory bank updated
     memories = memory_bank.get(session["user_id"])
@@ -521,7 +521,7 @@ async def test_analytics_aggregate_statistics(analytics_config, memory_bank, ses
     event = FakeEvent(payload={"action": "aggregate"})
     response = await agent.on_event(event, ctx)
 
-    aggregate = response.message["aggregate"]
+    aggregate = response.state_delta["aggregate"]
 
     assert aggregate["total_records"] == 6
     assert aggregate["appointment_confirmed"] == 3
@@ -544,7 +544,7 @@ async def test_analytics_includes_metrics_in_aggregate(analytics_config, memory_
     event = FakeEvent(payload={"action": "aggregate"})
     response = await agent.on_event(event, ctx)
 
-    aggregate = response.message["aggregate"]
+    aggregate = response.state_delta["aggregate"]
 
     # Should include metrics snapshot
     assert "metrics" in aggregate
@@ -566,8 +566,8 @@ async def test_analytics_unknown_action(analytics_config, memory_bank, session):
 
     response = await agent.on_event(event, ctx)
 
-    assert "error" in response.message
-    assert "unknown action" in response.message["error"].lower()
+    assert "error" in response.state_delta
+    assert "unknown action" in response.state_delta["error"].lower()
 
 
 @pytest.mark.asyncio

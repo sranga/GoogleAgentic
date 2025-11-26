@@ -19,6 +19,7 @@ from typing import Dict, Any, List, Optional
 from collections import Counter
 from datetime import datetime
 from pydantic import PrivateAttr
+from pydantic import BaseModel, Field
 
 # Try to import ADK Agent; fallback if not available for tests
 try:
@@ -39,6 +40,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Define the expected data model for records being ingested
+class AnalyticsRecord(BaseModel):
+    event: str = Field(description="The type of event, e.g., 'appointment_confirmed'")
+    timestamp: str = Field(description="ISO 8601 timestamp of the event.")
+    # Use extra='allow' to accept arbitrary fields like query_topic, kb_sections_used, etc.
+    class Config:
+        extra = 'allow'
 
 class MetricsCollector:
     """Simple in-memory metrics collector. Replace with Prometheus/OpenTelemetry in prod."""
@@ -60,25 +68,42 @@ class MetricsCollector:
         with self._lock:
             return {"counters": dict(self.counters), "gauges": dict(self.gauges)}
 
-
 class AnalyticsAgent(Agent):
 
     # Declare private attributes using PrivateAttr
     _memory_bank: Any = PrivateAttr(default=None)
     _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+    _records: List[Dict[str, Any]] = PrivateAttr(default_factory=dict)
 
     def __init__(self, config: Dict[str, Any], memory_bank=None):
         super().__init__(
             name="analytics_agent",
             model=config.get("model"),
-            description="Aggregates anonymized feedback and appointment metrics for reporting.",
-            instructions="Ingest anonymized records and provide aggregated metrics on request.",
+            description="Aggregates anonymized feedback and appointment metrics for reporting."
+                        "Ingest anonymized records and provide aggregated metrics on request.",
         )
-        self._records: List[Dict[str, Any]] = []
-        self.metrics = MetricsCollector()
         # Use private attributes to avoid Pydantic field conflicts
         object.__setattr__(self, '_config', config)
         object.__setattr__(self, '_memory_bank', memory_bank)
+        object.__setattr__(self, '_lock', threading.Lock())
+        object.__setattr__(self, '_records', [])
+        object.__setattr__(self, '_metrics', MetricsCollector())
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def memory_bank(self):
+        return self._memory_bank
+
+    @property
+    def metrics(self) -> 'MetricsCollector':
+        return self._metrics
+
+    @property
+    def records(self) -> List[Dict[str, Any]]:
+        return self._records
 
     async def on_event(self, event, ctx):
         """
@@ -97,28 +122,35 @@ class AnalyticsAgent(Agent):
                 self._ingest(record)
                 # increment metric
                 self.metrics.increment("records_ingested")
-                return EventActions(resume=True, message={"status": "ingested"})
+                return EventActions(state_delta={"status": "ingested"})
             else:
-                return EventActions(resume=True, message={"error": "no record provided"})
+                return EventActions(state_delta={"error": "no record provided"})
 
         if action == "aggregate":
             agg = self._aggregate()
-            return EventActions(resume=True, message={"aggregate": agg})
+            return EventActions(state_delta={"aggregate": agg})
 
         if action == "export":
             # placeholder for exporting to BigQuery / dashboard
             exported = self._export_placeholder()
-            return EventActions(resume=True, message={"exported": exported})
+            return EventActions(state_delta={"exported": exported})
 
-        return EventActions(resume=True, message={"error": "unknown action"})
+        return EventActions(state_delta={"error": "unknown action"})
 
     def _ingest(self, record: Dict[str, Any]):
         """Store an anonymized record. Production systems should apply DP/k-anonymity here."""
+        logger.info("AnalyticsAgent ingested record: keys=%s", list(record.keys()))
         # Validate record shape
         r = record.copy()
         r["_received_at"] = datetime.utcnow().isoformat()
+        if "timestamp" not in record:
+            r["timestamp"] = datetime.utcnow().isoformat()
+
         self._records.append(r)
-        logger.info("AnalyticsAgent ingested record: keys=%s", list(record.keys()))
+
+        # Update metrics based on the event type
+        event_type = r.get("event", "unknown")
+        self.metrics.increment(f"ingest_event:{event_type}", 1)
 
     def _aggregate(self) -> Dict[str, Any]:
         """Return simple aggregates computed over ingested records."""
