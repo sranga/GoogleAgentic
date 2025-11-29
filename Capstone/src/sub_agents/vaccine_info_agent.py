@@ -181,10 +181,27 @@ class VaccineInfoAgent(Agent):
     async def emit(self, payload: dict, session: dict):
         """Convenience method for testing and direct invocation."""
         fake_event = type("Event", (), {"payload": payload, "resume": False})()
+
+        # Create async mock for call_model
+        async def mock_call_model(prompt: str):
+            """Simple mock that returns KB-based response."""
+            # Extract the knowledge base context from the prompt
+            query = payload.get("text", "")
+            kb_context = self._retrieve_kb_context(query)
+
+            if kb_context:
+                return kb_context[0]  # Return the first relevant KB entry
+
+            return (
+                "Thank you for your question about vaccines. "
+                "For personalized medical advice, please consult with your healthcare provider."
+            )
+
         fake_ctx = type("Context", (), {
             "session": session,
             "metrics": None,
-            "call_tool": self._mock_call_tool  # If agent uses tools
+            "call_tool": self._mock_call_tool,
+            "call_model": mock_call_model
         })()
 
         response = await self.on_event(fake_event, fake_ctx)
@@ -293,3 +310,7 @@ INSTRUCTIONS:
                 return topic
 
         return "general"
+
+    async def _mock_call_tool(self, tool_name: str, params: dict):
+        """Mock tool call for testing."""
+        return {"response": "Mock tool response"}

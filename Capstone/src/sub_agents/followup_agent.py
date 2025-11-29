@@ -92,13 +92,17 @@ class FollowUpAgent(Agent):
 
         return EventActions(state_delta={"message": checkin_text})
 
+    async def _mock_call_tool(self, tool_name: str, params: dict):
+        """Mock tool call (not used by this agent)."""
+        return {}
+
     async def emit(self, payload: dict, session: dict):
         """Convenience method for testing and direct invocation."""
         fake_event = type("Event", (), {"payload": payload, "resume": False})()
         fake_ctx = type("Context", (), {
             "session": session,
             "metrics": None,
-            "call_tool": self._mock_call_tool  # If agent uses tools
+            "call_tool": self._mock_call_tool  # Keep for compatibility
         })()
 
         response = await self.on_event(fake_event, fake_ctx)

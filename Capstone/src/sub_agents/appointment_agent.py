@@ -131,13 +131,31 @@ class AppointmentAgent(Agent):
 
         return tool_result
 
+    async def _mock_call_tool(self, tool_name: str, params: dict):
+        """Mock tool call for testing/direct invocation."""
+        if tool_name == "booking_api":
+            return {
+                "confirmed": True,
+                "confirmation_id": f"CONF-{params.get('clinic_id')}-{params.get('time')}",
+                "clinic_id": params.get('clinic_id'),
+                "time": params.get('time')
+            }
+        return {"success": False}
+
     async def emit(self, payload: dict, session: dict):
         """Convenience method for testing and direct invocation."""
         fake_event = type("Event", (), {"payload": payload, "resume": False})()
+
+        # Create a proper metrics mock
+        class MockMetrics:
+            def counter(self, name: str, value: int = 1):
+                """Mock counter for testing."""
+                pass
+
         fake_ctx = type("Context", (), {
             "session": session,
-            "metrics": None,
-            "call_tool": self._mock_call_tool  # If agent uses tools
+            "metrics": MockMetrics(),
+            "call_tool": self._mock_call_tool
         })()
 
         response = await self.on_event(fake_event, fake_ctx)

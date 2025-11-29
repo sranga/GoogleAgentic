@@ -31,6 +31,7 @@ from security import InputValidator, ValidationError, SecureStorage
 
 from google.adk.agents import Agent
 from google.adk.events import EventActions
+from pydantic import PrivateAttr
 
 """
 # Use the try-except block to handle testing environment for ADK types
@@ -138,38 +139,55 @@ class VAccessOrchestrator(Agent):
     Production-grade orchestrator for the vaccine access workflow.
     Coordinates all specialized agents through the complete user journey.
     """
+    _config: Dict[str, Any] = PrivateAttr(default_factory=dict)
+    _session_service: Any = PrivateAttr(default=None)
+    _memory_bank: Any = PrivateAttr(default=None)
+    _vaccine_info: Any = PrivateAttr(default=None)
+    _clinic_finder: Any = PrivateAttr(default=None)
+    _appointment_agent: Any = PrivateAttr(default=None)
+    _followup_agent: Any = PrivateAttr(default=None)
+    _analytics_agent: Any = PrivateAttr(default=None)
+    _clinic_search_breaker: Any = PrivateAttr(default=None)
+    _booking_breaker: Any = PrivateAttr(default=None)
+    _secure_storage: Any = PrivateAttr(default=None)
+    _session_locks: Dict[str, asyncio.Lock] = PrivateAttr(default_factory=dict)
 
     def __init__(self, config: Dict[str, Any]):
         # 1. Call the parent constructor (BaseAgent/Agent) and set the agent's name.
         # This registers the agent's identity for the Web UI.
         try:
-            super().__init__(name="VAccessOrchestrator")
+            super().__init__(
+            name="VAccessOrchestrator",
+            model=config.get("model", "gemini-2.0-flash"),
+            description="Main orchestrator for vaccine access workflow",
+            instruction="Coordinate vaccination workflow from education to follow-up"
+        )
         except TypeError:
             # Fallback for environments where BaseAgent has no __init__
             pass
 
-        self.config = config or {}
+        object.__setattr__(self, '_config', config or {})
 
         # Session and memory services
-        self.session_service = InMemorySessionService()
-        self.memory_bank = MemoryBank()
+        object.__setattr__(self, '_session_service', InMemorySessionService())
+        object.__setattr__(self, '_memory_bank', MemoryBank())
 
         # Initialize specialized agents
-        self.vaccine_info = VaccineInfoAgent(config, memory_bank=self.memory_bank)
-        self.clinic_finder = ClinicFinderAgent(config)
-        self.appointment_agent = AppointmentAgent(config)
-        self.followup_agent = FollowUpAgent(config, memory_bank=self.memory_bank)
-        self.analytics_agent = AnalyticsAgent(config, memory_bank=self.memory_bank)
+        object.__setattr__(self, '_vaccine_info', VaccineInfoAgent(config, memory_bank=self.memory_bank))
+        object.__setattr__(self, '_clinic_finder', ClinicFinderAgent(config))
+        object.__setattr__(self, '_appointment_agent', AppointmentAgent(config))
+        object.__setattr__(self, '_followup_agent', FollowUpAgent(config, memory_bank=self.memory_bank))
+        object.__setattr__(self, '_analytics_agent', AnalyticsAgent(config, memory_bank=self.memory_bank))
 
         # Circuit breakers for external service calls
-        self.clinic_search_breaker = CircuitBreaker()
-        self.booking_breaker = CircuitBreaker()
+        object.__setattr__(self, '_clinic_search_breaker', CircuitBreaker())
+        object.__setattr__(self, '_booking_breaker', CircuitBreaker())
 
         # Secure storage for confirmations
-        self.secure_storage = SecureStorage()
+        object.__setattr__(self, '_secure_storage', SecureStorage())
 
         # Session locks for concurrency control
-        self._session_locks: Dict[str, asyncio.Lock] = {}
+        object.__setattr__(self, '_session_locks', {})
 
         # Register health checks
         self._register_health_checks()
@@ -610,3 +628,72 @@ class VAccessOrchestrator(Agent):
         Returns an empty list as the orchestrator itself doesn't expose tools.
         """
         return []
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def session_service(self):
+        return self._session_service
+
+    @property
+    def memory_bank(self):
+        return self._memory_bank
+
+    @property
+    def vaccine_info(self):
+        return self._vaccine_info
+
+    @vaccine_info.setter
+    def vaccine_info(self, value):
+        """Allow setting vaccine_info for testing."""
+        object.__setattr__(self, '_vaccine_info', value)
+
+    @property
+    def clinic_finder(self):
+        return self._clinic_finder
+
+    @clinic_finder.setter
+    def clinic_finder(self, value):
+        """Allow setting clinic_finder for testing."""
+        object.__setattr__(self, '_clinic_finder', value)
+
+    @property
+    def appointment_agent(self):
+        return self._appointment_agent
+
+    @appointment_agent.setter
+    def appointment_agent(self, value):
+        """Allow setting appointment_agent for testing."""
+        object.__setattr__(self, '_appointment_agent', value)
+
+    @property
+    def followup_agent(self):
+        return self._followup_agent
+
+    @followup_agent.setter
+    def followup_agent(self, value):
+        """Allow setting followup_agent for testing."""
+        object.__setattr__(self, '_followup_agent', value)
+
+    @property
+    def analytics_agent(self):
+        return self._analytics_agent
+
+    @analytics_agent.setter
+    def analytics_agent(self, value):
+        """Allow setting analytics_agent for testing."""
+        object.__setattr__(self, '_analytics_agent', value)
+
+    @property
+    def clinic_search_breaker(self):
+        return self._clinic_search_breaker
+
+    @property
+    def booking_breaker(self):
+        return self._booking_breaker
+
+    @property
+    def secure_storage(self):
+        return self._secure_storage

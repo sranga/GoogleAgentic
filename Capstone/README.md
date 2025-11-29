@@ -264,6 +264,8 @@ Python 3.11.3 recommended.
 ## **Project Structure**
 
 `Capstone/src/` \
+`├── app.py                     # Startup application` \
+`├── local_server.py            # FastAPI server for local testing` \
 `├── vaccess_agent.py           # Main orchestrator` \
 `├── config.py                  # Configuration management` \
 `├── memory.py                  # Session and memory services` \
