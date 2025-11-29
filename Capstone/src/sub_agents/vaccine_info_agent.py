@@ -183,19 +183,15 @@ class VaccineInfoAgent(Agent):
         fake_event = type("Event", (), {"payload": payload, "resume": False})()
 
         # Create async mock for call_model
-        async def mock_call_model(prompt: str):
+        async def mock_call_model(*args):
             """Simple mock that returns KB-based response."""
-            # Extract the knowledge base context from the prompt
             query = payload.get("text", "")
             kb_context = self._retrieve_kb_context(query)
 
             if kb_context:
-                return kb_context[0]  # Return the first relevant KB entry
+                return kb_context[0]
 
-            return (
-                "Thank you for your question about vaccines. "
-                "For personalized medical advice, please consult with your healthcare provider."
-            )
+            return "Thank you for your question about vaccines."
 
         fake_ctx = type("Context", (), {
             "session": session,

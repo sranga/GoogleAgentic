@@ -39,14 +39,16 @@ async def query_agent(request: QueryRequest):
             user_id=request.user_id
         )
 
+        # Extract from state_delta
         return QueryResponse(
-            response=result.response,
+            response=result.state_delta.get("response", "No response"),
             session_state=result.state_delta.get("current_state", "unknown"),
             session_id=session_id
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/find-clinics")
 async def find_clinics(user_id: str, location: str):

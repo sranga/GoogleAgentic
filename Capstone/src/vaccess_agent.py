@@ -609,8 +609,8 @@ class VAccessOrchestrator(Agent):
         last_response = session['history'][-1]['text']
 
         return EventActions(
-            response=last_response,
             state_delta={
+                "response": last_response,
                 "current_state": session['workflow_state'],
                 "history_length": len(session['history'])
             }
